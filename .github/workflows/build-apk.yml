@@ -49,20 +49,28 @@ jobs:
           if 'POST_NOTIFICATIONS' not in man:
               man = man.replace('<application', perms + '    <application', 1)
               open(man_path, 'w').write(man)
-          # flutter_local_notifications needs core library desugaring
+          # flutter_local_notifications needs core library desugaring.
+          # Robust approach: append config blocks (string-match patching
+          # silently no-ops when the Flutter template text differs).
           gradle_path = 'android/app/build.gradle.kts'
           gradle = open(gradle_path).read()
           if 'isCoreLibraryDesugaringEnabled' not in gradle:
-              gradle = gradle.replace(
-                  'targetCompatibility = JavaVersion.VERSION_1_8',
-                  'targetCompatibility = JavaVersion.VERSION_1_8\n        isCoreLibraryDesugaringEnabled = true',
-                  1)
-              gradle = gradle.replace(
-                  'dependencies {',
-                  'dependencies {\n    coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")',
-                  1)
+              gradle += """
+
+          android {
+              compileOptions {
+                  isCoreLibraryDesugaringEnabled = true
+              }
+          }
+
+          dependencies {
+              coreLibraryDesugaring("com.android.tools:desugar_jdk_libs:2.1.5")
+          }
+          """
               open(gradle_path, 'w').write(gradle)
-          print('pubspec + manifest + gradle patched')
+          gradle = open(gradle_path).read()
+          assert 'isCoreLibraryDesugaringEnabled' in gradle, 'desugaring patch did NOT apply'
+          print('pubspec + manifest + gradle patched (desugaring verified)')
           PY
           flutter pub get
 
