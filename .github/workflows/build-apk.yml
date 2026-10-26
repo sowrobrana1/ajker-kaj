@@ -23,7 +23,34 @@ jobs:
       - name: Scaffold Flutter project and install app code
         run: |
           flutter create . --org com.sowrobrana --project-name ajker_kaj
-          cp app_main.dart lib/main.dart
+          rm -f lib/main.dart
+          cp lib_src/*.dart lib/
+          python3 - <<'PY'
+          import re
+          # Add dependencies to pubspec.yaml
+          pub = open('pubspec.yaml').read()
+          deps = """  shared_preferences: ^2.3.0
+            flutter_local_notifications: ^18.0.1
+            timezone: ^0.10.0
+            table_calendar: ^3.1.0
+            image_picker: ^1.1.2
+            path_provider: ^2.1.5
+            share_plus: ^10.0.0
+          """
+          pub = pub.replace('dependencies:\n', 'dependencies:\n' + deps, 1)
+          open('pubspec.yaml', 'w').write(pub)
+          # Notification permissions in AndroidManifest.xml
+          man_path = 'android/app/src/main/AndroidManifest.xml'
+          man = open(man_path).read()
+          perms = """    <uses-permission android:name="android.permission.POST_NOTIFICATIONS"/>
+              <uses-permission android:name="android.permission.SCHEDULE_EXACT_ALARM"/>
+              <uses-permission android:name="android.permission.USE_EXACT_ALARM"/>
+          """
+          if 'POST_NOTIFICATIONS' not in man:
+              man = man.replace('<application', perms + '    <application', 1)
+              open(man_path, 'w').write(man)
+          print('pubspec + manifest patched')
+          PY
           flutter pub get
 
       - name: Build release APK
